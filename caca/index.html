@@ -42,12 +42,14 @@ main{padding-bottom:90px}
 .cbadge{font-size:10px;font-weight:800;border-radius:999px;padding:1px 6px;color:#fff}
 .day.other{opacity:.32}
 .day.today{border-color:var(--brown);border-width:2px}
+.day.has-data{background:#fdf3e7;border-color:#d9a45b}
+.day.has-data .n{color:#7a5230}
 .day.selected{outline:3px solid var(--brown);outline-offset:1px}
 .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
 label.section{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;display:block}
-input[type=text],input[type=time]{border:1.5px solid var(--line);border-radius:12px;padding:11px;font-size:15px;width:100%;font-family:inherit}
+input[type=text],input[type=time]{border:1.5px solid var(--line);border-radius:12px;padding:11px;font-size:16px;width:100%;font-family:inherit}
 input[type=range]{width:100%;accent-color:var(--brown)}
-textarea{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:10px;font-family:inherit;font-size:14px;resize:vertical;min-height:48px}
+textarea{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:10px;font-family:inherit;font-size:16px;resize:vertical;min-height:48px}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .btn{border:none;border-radius:12px;padding:11px 14px;font-size:14px;font-weight:700;cursor:pointer;background:#efe4d6;color:#5d3a1a}
 .btn.primary{background:var(--brown);color:#fff}
@@ -301,7 +303,7 @@ function renderCal(){
   for(let i=0;i<42;i++){
     const d=addDays(start,i),k=iso(d),des=dayEntries(k);
     const b=document.createElement('button');
-    b.className='day'+(d.getMonth()!==viewM?' other':'')+(k===todayISO?' today':'')+(k===selected?' selected':'');
+    b.className='day'+(d.getMonth()!==viewM?' other':'')+(k===todayISO?' today':'')+(k===selected?' selected':'')+(des.length?' has-data':'');
     const by={};
     des.forEach(e=>{ by[e.pseudo]=by[e.pseudo]||{n:0,c:e.color}; by[e.pseudo].n++; });
     b.innerHTML=`<span class="n">${d.getDate()}</span><span class="counts">`+Object.values(by).map(x=>`<span class="cbadge" style="background:${x.c}">${x.n}</span>`).join('')+`</span>`;
