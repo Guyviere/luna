@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Caca — suivi partagé</title>
+<meta name="description" content="Calendrier partagé à deux : note chaque passage, texture, couleur, odeur.">
+<meta name="theme-color" content="#7a5230">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Caca">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{--bg:#faf6f1;--card:#fff;--ink:#3d2c1e;--muted:#9a8874;--line:#e8dccf;--radius:16px;--brown:#7a5230}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);-webkit-tap-highlight-color:transparent}
+header{position:sticky;top:0;z-index:10;background:rgba(250,246,241,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.wrap{max-width:600px;margin:0 auto;padding:0 16px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px}
+.logo{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#a9743c,#5d3a1a);display:grid;place-items:center;font-size:20px}
+main{padding-bottom:90px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:14px 0;box-shadow:0 4px 18px rgba(122,82,48,.07)}
+.state{background:linear-gradient(135deg,#a9743c,#5d3a1a);color:#fff;border:none}
+.state .big{font-size:20px;font-weight:800;margin:4px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.pill{background:rgba(255,255,255,.2);border-radius:999px;padding:6px 10px;font-size:13px}
+.avchip{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:13px}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cal-head h2{margin:0;font-size:18px;text-transform:capitalize}
+.navbtn{border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 12px;font-size:16px;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.dow{font-size:11px;text-align:center;color:var(--muted);font-weight:700;padding:4px 0}
+.day{border-radius:12px;border:1.5px solid var(--line);background:#fff;padding:4px 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:56px}
+.day .n{font-weight:700;font-size:13px}
+.day .counts{display:flex;gap:3px}
+.cbadge{font-size:10px;font-weight:800;border-radius:999px;padding:1px 6px;color:#fff}
+.day.other{opacity:.32}
+.day.today{border-color:var(--brown);border-width:2px}
+.day.selected{outline:3px solid var(--brown);outline-offset:1px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
+label.section{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;display:block}
+input[type=text],input[type=time]{border:1.5px solid var(--line);border-radius:12px;padding:11px;font-size:15px;width:100%;font-family:inherit}
+input[type=range]{width:100%;accent-color:var(--brown)}
+textarea{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:10px;font-family:inherit;font-size:14px;resize:vertical;min-height:48px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btn{border:none;border-radius:12px;padding:11px 14px;font-size:14px;font-weight:700;cursor:pointer;background:#efe4d6;color:#5d3a1a}
+.btn.primary{background:var(--brown);color:#fff}
+.btn.danger{background:#fff;color:#b71c1c;border:1.5px solid #ef9a9a}
+.colorpick{display:flex;gap:8px;margin-top:8px}
+.cpick{width:36px;height:36px;border-radius:50%;cursor:pointer;border:3px solid transparent}
+.cpick.on{border-color:var(--ink)}
+.entry{border:1px solid var(--line);border-radius:12px;padding:10px;margin:8px 0;background:#fffdf9}
+.entry .head{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.meter{font-size:12px;margin:3px 0;color:#5d4a36}
+.meter b{display:inline-block;min-width:74px}
+.bar{height:8px;border-radius:99px;background:#f0e7da;overflow:hidden;margin-top:2px}
+.bar i{display:block;height:100%;border-radius:99px}
+.modal-backdrop{position:fixed;inset:0;background:rgba(61,44,30,.5);display:none;z-index:50;padding:12px;overflow-y:auto}
+.modal-backdrop.open{display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:600px){.modal-backdrop.open{align-items:center}}
+.modal-sheet{width:100%;max-width:600px;max-height:92vh;overflow-y:auto;margin:0;animation:slideup .22s ease}
+@keyframes slideup{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.xbtn{border:1px solid var(--line);background:#fff;border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;flex-shrink:0}
+body.locked{overflow:hidden}
+.alert{background:#fff8e1;border:2px solid #ffb300;border-radius:var(--radius);padding:12px 14px;margin:14px 0;font-size:14px}
+.codebox{font-size:26px;font-weight:800;letter-spacing:.2em;text-align:center;background:#faf6f1;border:2px dashed var(--brown);border-radius:12px;padding:10px;margin:10px 0}
+.muted{color:var(--muted);font-size:13px}
+.hidden{display:none!important}
+footer{padding:24px 0;text-align:center}
+.grad{height:10px;border-radius:99px;margin-top:4px}
+</style>
+</head>
+<body>
+<header><div class="wrap topbar">
+  <div class="brand"><span class="logo">💩</span> Caca</div>
+  <span class="avchip" id="meChip"></span>
+</div></header>
+
+<main class="wrap">
+
+  <div class="card hidden" id="noconfig">
+    <strong>⚙️ Base à brancher (une fois, 10 min)</strong>
+    <p class="muted">Le partage a besoin d'une petite base gratuite (Firebase). Ouvre <code>index.html</code>, cherche <code>FIREBASE_CONFIG</code> et colle ta config — la marche à suivre est en commentaire en haut du fichier.</p>
+  </div>
+
+  <div class="card hidden" id="joinCard">
+    <h3 style="margin:0 0 4px">👋 C'est parti à deux</h3>
+    <p class="muted">Choisis ton pseudo. Ensuite : crée un espace et envoie le code à ton ami, ou rejoins son code.</p>
+    <label class="section">Ton pseudo</label>
+    <input type="text" id="pseudo" maxlength="16" placeholder="Ex : Alex">
+    <label class="section">Ta couleur</label>
+    <div class="colorpick" id="colorPick"></div>
+    <label class="section">Code d'espace</label>
+    <input type="text" id="roomInput" maxlength="6" placeholder="Ex : K7Q2XA" style="text-transform:uppercase">
+    <div class="btnrow">
+      <button class="btn primary" id="createBtn">Créer un espace</button>
+      <button class="btn" id="joinBtn">Rejoindre</button>
+    </div>
+  </div>
+
+  <div class="card state hidden" id="roomCard">
+    <small>Espace partagé</small>
+    <div class="big" id="roomTitle">—</div>
+    <div class="codebox" id="roomCode">——————</div>
+    <div class="btnrow">
+      <button class="btn" id="copyBtn" style="background:rgba(255,255,255,.2);color:#fff">Copier le lien</button>
+      <button class="btn" id="leaveBtn" style="background:rgba(255,255,255,.2);color:#fff">Quitter</button>
+    </div>
+    <div class="row" id="roomStats"></div>
+  </div>
+
+  <div class="card hidden" id="mainCard">
+    <div class="cal-head">
+      <button class="navbtn" id="prevM">‹</button>
+      <h2 id="monthLabel">—</h2>
+      <button class="navbtn" id="nextM">›</button>
+    </div>
+    <div style="text-align:center;margin-bottom:8px"><button class="navbtn" id="todayBtn">Aujourd'hui</button></div>
+    <div class="grid" id="dow"></div>
+    <div class="grid" id="cal" style="margin-top:6px"></div>
+    <div class="legend" id="legend"></div>
+    <p class="muted">👆 Touche un jour (aujourd'hui par défaut) pour voir et ajouter.</p>
+  </div>
+
+  <div class="card hidden" id="recentCard">
+    <h3 style="margin:0 0 8px">Derniers passages</h3>
+    <div id="recent"></div>
+  </div>
+
+  <footer class="muted">💩 Suivi fun, pas un avis médical.<br>Sang récurrent, noir persistant ou douleurs fortes → parles-en à un pro.</footer>
+</main>
+
+<div class="modal-backdrop" id="dayModal">
+  <div class="card modal-sheet">
+    <div class="modal-head">
+      <div><h3 id="dayTitle" style="margin:0 0 4px">—</h3>
+      <div class="muted" id="daySub">—</div></div>
+      <button class="xbtn" id="closeDay">✕</button>
+    </div>
+    <div id="entryList"></div>
+    <label class="section">➕ Nouveau passage</label>
+    <label class="section">Heure</label>
+    <input type="time" id="fTime">
+    <label class="section">Texture : <span id="vTex">5</span>/10 <span class="muted">(0 liquide 💧 → 10 solide 🪨)</span></label>
+    <input type="range" id="fTex" min="0" max="10" value="5">
+    <label class="section">Couleur : <span id="vCol">5</span>/10 <span class="muted">(0 clair ⬜ → 10 noir ⬛)</span></label>
+    <input type="range" id="fCol" min="0" max="10" value="5">
+    <div class="grad" id="colGrad" style="background:linear-gradient(90deg,#f5f0e6,#8d6e4a,#3e2723,#000)"></div>
+    <label class="section">Odeur : <span id="vOdo">5</span>/10 <span class="muted">(0 aucune 🌸 → 10 atroce 🤢)</span></label>
+    <input type="range" id="fOdo" min="0" max="10" value="5">
+    <label class="section">Douleur / effort : <span id="vPai">0</span>/10</label>
+    <input type="range" id="fPai" min="0" max="10" value="0">
+    <label class="section">Note (optionnel)</label>
+    <textarea id="fNote" placeholder="Contexte, repas…"></textarea>
+    <div class="btnrow">
+      <button class="btn primary" id="addBtn" style="flex:1">Ajouter 💩</button>
+      <button class="btn" id="doneDay">Terminé ✓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   BRANCHEMENT FIREBASE (à faire une fois) :
+   1. Va sur https://console.firebase.google.com → "Ajouter un projet"
+      (nom ex "caca-duo", décoche Analytics).
+   2. Dans le projet : "Compiler" → Authentication → Sign-in method →
+      active "Anonyme".
+   3. "Compiler" → Firestore Database → "Créer une base" → mode PRODUCTION.
+   4. Onglet "Règles", colle :
+        rules_version = '2';
+        service cloud.firestore {
+          match /databases/{db}/documents {
+            match /entries/{id} {
+              allow read, write: if request.auth != null;
+            }
+          }
+        }
+      puis Publier.
+   5. Roue dentée → Paramètres du projet → "Tes applications" → Web (</>) →
+      donne un pseudo → copie l'objet firebaseConfig ici :
+   ===================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "PASTE_TA_CLE",
+  authDomain: "PASTE_TON_DOMAINE",
+  projectId: "PASTE_TON_ID",
+};
+const CONFIGURED = !FIREBASE_CONFIG.apiKey.includes("PASTE");
+
+const COLORS = ['#3a6ea5','#ef6c00','#43a047','#8e24aa','#c62828','#00838f'];
+let me = JSON.parse(localStorage.getItem('caca-me') || 'null');
+let room = new URLSearchParams(location.search).get('room') || localStorage.getItem('caca-room') || null;
+let entries = [], unsub = null, uid = null;
+let viewY, viewM, selected;
+const todayISO = iso(new Date());
+(function init(){
+  const t = new Date(); viewY = t.getFullYear(); viewM = t.getMonth(); selected = todayISO;
+  if(!CONFIGURED){ document.getElementById('noconfig').classList.remove('hidden'); return; }
+  firebase.initializeApp(FIREBASE_CONFIG);
+  firebase.auth().signInAnonymously().then(c => { uid = c.user.uid; buildStatic(); refresh(); }).catch(e => alert("Connexion impossible : " + e.message));
+})();
+
+function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function parseISO(s){ const[a,b,c]=s.split('-').map(Number); return new Date(a,b-1,c); }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function nowTime(){ const d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+function genCode(){ const A='ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<6;i++)s+=A[Math.floor(Math.random()*A.length)]; return s; }
+
+function buildStatic(){
+  document.getElementById('dow').innerHTML=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map(d=>`<div class="dow">${d}</div>`).join('');
+  const cp=document.getElementById('colorPick');
+  cp.innerHTML=COLORS.map(c=>`<span class="cpick" data-c="${c}" style="background:${c}"></span>`).join('');
+  let myColor = me?.color || COLORS[Math.floor(Math.random()*COLORS.length)];
+  cp.querySelectorAll('.cpick').forEach(s=>{
+    if(s.dataset.c===myColor)s.classList.add('on');
+    s.onclick=()=>{ cp.querySelectorAll('.cpick').forEach(x=>x.classList.remove('on')); s.classList.add('on'); };
+  });
+  document.getElementById('createBtn').onclick=()=>{ if(!checkPseudo())return; room=genCode(); saveMe(); enterRoom(); };
+  document.getElementById('joinBtn').onclick=()=>{ if(!checkPseudo())return; const c=document.getElementById('roomInput').value.trim().toUpperCase(); if(c.length!==6){alert('Code à 6 lettres/chiffres.');return;} room=c; saveMe(); enterRoom(); };
+  document.getElementById('copyBtn').onclick=()=>{ const u=location.origin+location.pathname+'?room='+room; (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>alert('Lien copié ! Envoie-le à ton ami.')).catch(()=>prompt('Copie ce lien :',u)); };
+  document.getElementById('leaveBtn').onclick=()=>{ if(confirm('Quitter cet espace ? Tes passages restent enregistrés.')){ room=null; localStorage.removeItem('caca-room'); if(unsub)unsub(); if(location.search)history.replaceState(null,'',location.pathname); refresh(); } };
+  document.getElementById('prevM').onclick=()=>{ viewM--; if(viewM<0){viewM=11;viewY--} render(); };
+  document.getElementById('nextM').onclick=()=>{ viewM++; if(viewM>11){viewM=0;viewY++} render(); };
+  document.getElementById('todayBtn').onclick=()=>{ const t=new Date(); viewY=t.getFullYear(); viewM=t.getMonth(); selected=todayISO; render(); openDayModal(selected); };
+  document.getElementById('closeDay').onclick=closeDayModal;
+  document.getElementById('doneDay').onclick=closeDayModal;
+  document.getElementById('dayModal').addEventListener('click',e=>{ if(e.target.id==='dayModal')closeDayModal(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeDayModal(); });
+  [['fTex','vTex'],['fCol','vCol'],['fOdo','vOdo'],['fPai','vPai']].forEach(([a,b])=>{ document.getElementById(a).oninput=e=>document.getElementById(b).textContent=e.target.value; });
+  document.getElementById('addBtn').onclick=addEntry;
+  if(me)document.getElementById('pseudo').value=me.pseudo;
+}
+function checkPseudo(){
+  const p=document.getElementById('pseudo').value.trim().slice(0,16);
+  if(!p){ alert('Choisis un pseudo !'); return false; }
+  const c=document.querySelector('#colorPick .cpick.on');
+  me={pseudo:p,color:c?c.dataset.c:COLORS[0]};
+  return true;
+}
+function saveMe(){ localStorage.setItem('caca-me',JSON.stringify(me)); localStorage.setItem('caca-room',room); }
+function refresh(){
+  const inRoom = !!(room && me);
+  document.getElementById('joinCard').classList.toggle('hidden',inRoom);
+  document.getElementById('roomCard').classList.toggle('hidden',!inRoom);
+  document.getElementById('mainCard').classList.toggle('hidden',!inRoom);
+  document.getElementById('recentCard').classList.toggle('hidden',!inRoom);
+  if(!inRoom){ const c=new URLSearchParams(location.search).get('room'); if(c)document.getElementById('roomInput').value=c; return; }
+  document.getElementById('meChip').innerHTML=`<span class="dot" style="background:${me.color}"></span> ${me.pseudo}`;
+  document.getElementById('roomCode').textContent=room;
+  document.getElementById('roomTitle').textContent='Espace '+me.pseudo+' & ami';
+  const url=location.origin+location.pathname+'?room='+room;
+  if(!location.search||!location.search.includes(room))history.replaceState(null,'','?room='+room);
+  if(unsub)unsub();
+  unsub=firebase.firestore().collection('entries').where('room','==',room).onSnapshot(snap=>{
+    entries=snap.docs.map(d=>({id:d.id,...d.data()}));
+    entries.sort((a,b)=>(a.day+a.time).localeCompare(b.day+b.time));
+    render();
+  },err=>alert('Lecture impossible : '+err.message));
+}
+function enterRoom(){ saveMe(); if(!location.search.includes(room))history.replaceState(null,'','?room='+room); refresh(); }
+function people(){
+  const m={};
+  entries.forEach(e=>{ if(!m[e.author])m[e.author]={pseudo:e.pseudo,color:e.color}; });
+  return m;
+}
+function render(){ renderRoom(); renderCal(); renderDay(); renderRecent(); }
+function renderRoom(){
+  const ps=people(),names=Object.values(ps);
+  document.getElementById('legend').innerHTML=names.map(p=>`<span><span class="dot" style="background:${p.color}"></span>${p.pseudo}</span>`).join('')||'<span class="muted">—</span>';
+  const in7=entries.filter(e=>e.day>=iso(addDays(new Date(),-6)));
+  document.getElementById('roomStats').innerHTML=names.map(p=>{
+    const n=in7.filter(e=>e.author===p.pseudo||e.pseudo===p.pseudo).length;
+    return `<span class="pill">${p.pseudo} : ${n} en 7j</span>`;
+  }).join('')+`<span class="pill">${entries.length} au total</span>`;
+  const t=todayISO;
+  document.getElementById('roomTitle').textContent=`${entries.filter(e=>e.day===t).length} passage(s) aujourd'hui`;
+}
+function dayEntries(k){ return entries.filter(e=>e.day===k); }
+function renderCal(){
+  document.getElementById('monthLabel').textContent=new Date(viewY,viewM,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  const first=new Date(viewY,viewM,1),start=addDays(first,-((first.getDay()+6)%7));
+  const cal=document.getElementById('cal'); cal.innerHTML='';
+  for(let i=0;i<42;i++){
+    const d=addDays(start,i),k=iso(d),des=dayEntries(k);
+    const b=document.createElement('button');
+    b.className='day'+(d.getMonth()!==viewM?' other':'')+(k===todayISO?' today':'')+(k===selected?' selected':'');
+    const by={};
+    des.forEach(e=>{ by[e.pseudo]=by[e.pseudo]||{n:0,c:e.color}; by[e.pseudo].n++; });
+    b.innerHTML=`<span class="n">${d.getDate()}</span><span class="counts">`+Object.values(by).map(x=>`<span class="cbadge" style="background:${x.c}">${x.n}</span>`).join('')+`</span>`;
+    b.onclick=()=>{ selected=k; render(); openDayModal(k); };
+    cal.appendChild(b);
+  }
+}
+function meter(label,v,color){ return `<div class="meter"><b>${label} ${v}/10</b><div class="bar"><i style="width:${v*10}%;background:${color}"></i></div></div>`; }
+function renderDay(){
+  const d=parseISO(selected),des=dayEntries(selected);
+  document.getElementById('dayTitle').textContent=d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('daySub').textContent=des.length?des.length+' passage(s) — vous deux confondus':'Aucun passage ce jour.';
+  document.getElementById('entryList').innerHTML=des.map(e=>`
+    <div class="entry">
+      <div class="head">
+        <span class="avchip"><span class="dot" style="background:${e.color}"></span>${e.pseudo} • ${e.time}</span>
+        ${e.author===uid?`<button class="btn danger" style="padding:4px 10px" onclick="delEntry('${e.id}')">✕</button>`:''}
+      </div>
+      ${meter('Texture',e.texture,'#a9743c')}${meter('Couleur',e.color,'#5d4a36')}${meter('Odeur',e.smell,'#7b8f00')}
+      ${e.pain>0?`<div class="meter">😖 Douleur/effort : ${e.pain}/10</div>`:''}
+      ${e.note?`<div class="muted">✎ ${e.note}</div>`:''}
+    </div>`).join('')||'<p class="muted">Rien pour l\'instant. Premier ? 👇</p>';
+  document.getElementById('fTime').value=nowTime();
+}
+function renderRecent(){
+  const last=[...entries].reverse().slice(0,10);
+  document.getElementById('recent').innerHTML=last.map(e=>{
+    const dl=parseISO(e.day).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+    return `<div class="entry"><span class="avchip"><span class="dot" style="background:${e.color}"></span>${e.pseudo}</span> <span class="muted">${dl} ${e.time} • T${e.texture} C${e.color} O${e.smell}</span></div>`;
+  }).join('')||'<p class="muted">Rien pour l\'instant.</p>';
+}
+function openDayModal(k){ selected=k||selected; render(); document.getElementById('dayModal').classList.add('open'); document.body.classList.add('locked'); }
+function closeDayModal(){ document.getElementById('dayModal').classList.remove('open'); document.body.classList.remove('locked'); }
+function addEntry(){
+  const t=document.getElementById('fTime').value||nowTime();
+  const doc={room,author:uid,pseudo:me.pseudo,color:me.color,day:selected,time:t,ts:selected+'T'+t,
+    texture:+document.getElementById('fTex').value,color:+document.getElementById('fCol').value,
+    smell:+document.getElementById('fOdo').value,pain:+document.getElementById('fPai').value,
+    note:document.getElementById('fNote').value.trim(),createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+  firebase.firestore().collection('entries').add(doc).then(()=>{
+    document.getElementById('fNote').value='';
+    document.getElementById('fPai').value=0; document.getElementById('vPai').textContent=0;
+  }).catch(e=>alert('Ajout impossible : '+e.message));
+}
+function delEntry(id){ if(confirm('Supprimer ce passage ?'))firebase.firestore().collection('entries').doc(id).delete(); }
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;});
+</script>
+</body>
+</html>
