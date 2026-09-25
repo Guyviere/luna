@@ -75,7 +75,9 @@ footer{padding:24px 0;text-align:center}
 
 <main class="wrap">
 
-  <div class="card hidden" id="joinCard">
+  <div class="card hidden" id="errBox" style="border:2px solid #ef5350;color:#b71c1c"></div>
+
+  <div class="card" id="joinCard">
     <h3 style="margin:0 0 4px">👋 La liste à deux</h3>
     <p class="muted">Pseudo + couleur, puis crée l'espace et envoie le code à ta compagne (ou rejoins le sien).</p>
     <label class="section">Ton pseudo</label>
@@ -141,9 +143,16 @@ let me = JSON.parse(localStorage.getItem('shop-me') || 'null');
 let room = new URLSearchParams(location.search).get('room') || localStorage.getItem('shop-room') || null;
 let items = [], unsub = null, uid = null;
 (function init(){
-  firebase.initializeApp(FIREBASE_CONFIG);
-  firebase.auth().signInAnonymously().then(c => { uid = c.user.uid; buildStatic(); refresh(); }).catch(e => alert("Connexion impossible : " + e.message));
+  if(typeof firebase==='undefined'){ showErr("Librairies Google inaccessibles. Vérifie ta connexion internet puis recharge la page."); return; }
+  const slow=setTimeout(()=>showErr("Connexion lente… vérifie internet, puis recharge la page."),10000);
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    firebase.auth().signInAnonymously().then(c => { clearTimeout(slow); hideErr(); uid = c.user.uid; buildStatic(); refresh(); }).catch(e => showErr("Connexion impossible : " + e.message));
+  }catch(e){ showErr("Erreur au démarrage : "+e.message); }
 })();
+function showErr(m){ const b=document.getElementById('errBox'); if(!b)return; b.textContent='⚠️ '+m; b.classList.remove('hidden'); }
+function hideErr(){ const b=document.getElementById('errBox'); if(b)b.classList.add('hidden'); }
+window.addEventListener('error',e=>{ if(e&&e.message)showErr(e.message); });
 
 function buildStatic(){
   const cp=document.getElementById('colorPick');
