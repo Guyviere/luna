@@ -14,6 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <style>
 :root{--bg:#faf6f1;--card:#fff;--ink:#3d2c1e;--muted:#9a8874;--line:#e8dccf;--radius:16px;--brown:#7a5230}
 *{box-sizing:border-box}
@@ -159,6 +160,9 @@ footer{padding:24px 0;text-align:center}
     <input type="range" id="fPai" min="0" max="10" value="0">
     <label class="section">Note (optionnel)</label>
     <textarea id="fNote" placeholder="Contexte, repas…"></textarea>
+    <label class="section">Photo (optionnel, visible par vous deux)</label>
+    <input type="file" id="fPhoto" accept="image/*">
+    <img id="photoPrev" class="hidden" style="width:100%;border-radius:12px;margin-top:8px" alt="Aperçu">
     <div class="btnrow">
       <button class="btn primary" id="addBtn" style="flex:1">Ajouter 💩</button>
       <button class="btn" id="doneDay">Terminé ✓</button>
@@ -185,7 +189,18 @@ footer{padding:24px 0;text-align:center}
         }
       puis Publier.
    5. Roue dentée → Paramètres du projet → "Tes applications" → Web (</>) →
-      donne un pseudo → copie l'objet firebaseConfig ici :
+      donne un pseudo → copie l'objet firebaseConfig ici.
+   6. PHOTOS : menu "Compiler" → Storage → "Commencer" (mode production,
+      même région) → onglet "Règles", colle :
+        rules_version = '2';
+        service firebase.storage {
+          match /b/{bucket}/o {
+            match /rooms/{room}/{file} {
+              allow read, write: if request.auth != null;
+            }
+          }
+        }
+      puis Publier. (Les photos sont compressées à ~1200px avant envoi.)
    ===================================================================== */
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBLa4c5CE7nmCEEdMhqw52MAWwya4EAM8E",
@@ -234,6 +249,11 @@ function buildStatic(){
   document.getElementById('dayModal').addEventListener('click',e=>{ if(e.target.id==='dayModal')closeDayModal(); });
   document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeDayModal(); });
   [['fTex','vTex'],['fCol','vCol'],['fOdo','vOdo'],['fPai','vPai']].forEach(([a,b])=>{ document.getElementById(a).oninput=e=>document.getElementById(b).textContent=e.target.value; });
+  document.getElementById('fPhoto').onchange=e=>{
+    const f=e.target.files[0],prev=document.getElementById('photoPrev');
+    if(f){ prev.src=URL.createObjectURL(f); prev.classList.remove('hidden'); }
+    else{ prev.src=''; prev.classList.add('hidden'); }
+  };
   document.getElementById('addBtn').onclick=addEntry;
   if(me)document.getElementById('pseudo').value=me.pseudo;
 }
@@ -310,6 +330,7 @@ function renderDay(){
         ${e.author===uid?`<button class="btn danger" style="padding:4px 10px" onclick="delEntry('${e.id}')">✕</button>`:''}
       </div>
       ${meter('Texture',e.texture,'#a9743c')}${meter('Couleur',e.color,'#5d4a36')}${meter('Odeur',e.smell,'#7b8f00')}
+      ${e.photoURL?`<a href="${e.photoURL}" target="_blank" rel="noopener"><img src="${e.photoURL}" loading="lazy" style="width:100%;border-radius:10px;margin-top:6px"></a>`:''}
       ${e.pain>0?`<div class="meter">😖 Douleur/effort : ${e.pain}/10</div>`:''}
       ${e.note?`<div class="muted">✎ ${e.note}</div>`:''}
     </div>`).join('')||'<p class="muted">Rien pour l\'instant. Premier ? 👇</p>';
@@ -319,23 +340,58 @@ function renderRecent(){
   const last=[...entries].reverse().slice(0,10);
   document.getElementById('recent').innerHTML=last.map(e=>{
     const dl=parseISO(e.day).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
-    return `<div class="entry"><span class="avchip"><span class="dot" style="background:${e.color}"></span>${e.pseudo}</span> <span class="muted">${dl} ${e.time} • T${e.texture} C${e.color} O${e.smell}</span></div>`;
+    return `<div class="entry"><span class="avchip"><span class="dot" style="background:${e.color}"></span>${e.pseudo}</span> <span class="muted">${dl} ${e.time} • T${e.texture} C${e.color} O${e.smell}${e.photoURL?' • 📷':''}</span></div>`;
   }).join('')||'<p class="muted">Rien pour l\'instant.</p>';
 }
 function openDayModal(k){ selected=k||selected; render(); document.getElementById('dayModal').classList.add('open'); document.body.classList.add('locked'); }
 function closeDayModal(){ document.getElementById('dayModal').classList.remove('open'); document.body.classList.remove('locked'); }
-function addEntry(){
-  const t=document.getElementById('fTime').value||nowTime();
-  const doc={room,author:uid,pseudo:me.pseudo,color:me.color,day:selected,time:t,ts:selected+'T'+t,
-    texture:+document.getElementById('fTex').value,color:+document.getElementById('fCol').value,
-    smell:+document.getElementById('fOdo').value,pain:+document.getElementById('fPai').value,
-    note:document.getElementById('fNote').value.trim(),createdAt:firebase.firestore.FieldValue.serverTimestamp()};
-  firebase.firestore().collection('entries').add(doc).then(()=>{
-    document.getElementById('fNote').value='';
-    document.getElementById('fPai').value=0; document.getElementById('vPai').textContent=0;
-  }).catch(e=>alert('Ajout impossible : '+e.message));
+function compressImage(file){
+  return new Promise((res,rej)=>{
+    const img=new Image(),url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const max=1200,r=Math.min(1,max/Math.max(img.width,img.height));
+      const w=Math.max(1,Math.round(img.width*r)),h=Math.max(1,Math.round(img.height*r));
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);
+      c.toBlob(b=>b?res(b):rej(new Error('compression')),'image/jpeg',0.75);
+    };
+    img.onerror=rej; img.src=url;
+  });
 }
-function delEntry(id){ if(confirm('Supprimer ce passage ?'))firebase.firestore().collection('entries').doc(id).delete(); }
+async function addEntry(){
+  const btn=document.getElementById('addBtn');
+  btn.disabled=true; btn.textContent='Envoi…';
+  try{
+    const t=document.getElementById('fTime').value||nowTime();
+    let photoURL=null,photoPath=null;
+    const f=document.getElementById('fPhoto').files[0];
+    if(f){
+      const blob=await compressImage(f);
+      photoPath=`rooms/${room}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.jpg`;
+      const snap=await firebase.storage().ref(photoPath).put(blob);
+      photoURL=await snap.ref.getDownloadURL();
+    }
+    await firebase.firestore().collection('entries').add({room,author:uid,pseudo:me.pseudo,color:me.color,day:selected,time:t,ts:selected+'T'+t,
+      texture:+document.getElementById('fTex').value,color:+document.getElementById('fCol').value,
+      smell:+document.getElementById('fOdo').value,pain:+document.getElementById('fPai').value,
+      note:document.getElementById('fNote').value.trim(),photoURL,photoPath,
+      createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    document.getElementById('fNote').value='';
+    document.getElementById('fPhoto').value='';
+    document.getElementById('photoPrev').src='';
+    document.getElementById('photoPrev').classList.add('hidden');
+    document.getElementById('fPai').value=0; document.getElementById('vPai').textContent=0;
+  }catch(e){ alert('Ajout impossible : '+e.message); }
+  btn.disabled=false; btn.textContent='Ajouter 💩';
+}
+function delEntry(id){
+  if(!confirm('Supprimer ce passage ?'))return;
+  const jobs=[firebase.firestore().collection('entries').doc(id).delete()];
+  const e=entries.find(x=>x.id===id);
+  if(e&&e.photoPath)jobs.push(firebase.storage().ref(e.photoPath).delete().catch(()=>{}));
+  Promise.all(jobs).catch(e=>alert('Suppression impossible : '+e.message));
+}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;});
 </script>
