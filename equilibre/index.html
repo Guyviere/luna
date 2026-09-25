@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Équilibre — Suivi d'humeur</title>
+<meta name="description" content="Calendrier et courbes pour suivre ton humeur au quotidien (échelle 0-10).">
+<meta name="theme-color" content="#3a6ea5">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Équilibre">
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--ink:#24313f;--muted:#7d8ea1;--line:#dde6ef;--radius:16px;--blue:#3a6ea5;--green:#43a047;--orange:#ef6c00;--red:#c62828}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);-webkit-tap-highlight-color:transparent}
+header{position:sticky;top:0;z-index:10;background:rgba(244,247,251,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.wrap{max-width:600px;margin:0 auto;padding:0 16px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px}
+.logo{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#3a6ea5,#6a4c93);display:grid;place-items:center;color:#fff;font-size:20px}
+main{padding-bottom:90px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:14px 0;box-shadow:0 4px 18px rgba(58,110,165,.07)}
+.state{background:linear-gradient(135deg,#3a6ea5,#6a4c93);color:#fff;border:none}
+.state .big{font-size:22px;font-weight:800;margin:4px 0}
+.state small{opacity:.85}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.pill{background:rgba(255,255,255,.2);border-radius:999px;padding:6px 10px;font-size:13px}
+.alert{background:#ffebee;border:2px solid #ef5350;border-radius:var(--radius);padding:12px 14px;margin:14px 0;font-size:14px}
+.alert strong{color:#b71c1c}
+.cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cal-head h2{margin:0;font-size:18px;text-transform:capitalize}
+.navbtn{border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 12px;font-size:16px;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.dow{font-size:11px;text-align:center;color:var(--muted);font-weight:700;padding:4px 0}
+.day{border-radius:12px;border:1.5px solid var(--line);background:#fff;padding:4px 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:56px}
+.day .n{font-weight:700;font-size:13px}
+.day .s{font-size:11px;font-weight:800;border-radius:999px;padding:1px 7px;color:#fff}
+.day.other{opacity:.32}
+.day.today{border-color:var(--blue);border-width:2px}
+.day.selected{outline:3px solid var(--blue);outline-offset:1px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
+.sw{width:12px;height:12px;border-radius:4px;display:inline-block;vertical-align:-1px;margin-right:4px}
+label.section{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;display:block}
+.scoregrid{display:grid;grid-template-columns:repeat(11,1fr);gap:4px}
+@media(max-width:480px){.scoregrid{grid-template-columns:repeat(6,1fr)}}
+.score{border:2px solid var(--line);border-radius:10px;background:#fff;padding:9px 0;text-align:center;font-weight:800;font-size:15px;cursor:pointer}
+.score.on{color:#fff;transform:scale(1.06)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;font-size:14px;cursor:pointer;user-select:none}
+.chip.on{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700}
+textarea{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:10px;font-family:inherit;font-size:14px;resize:vertical;min-height:56px}
+input[type=range]{width:100%;accent-color:var(--blue)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btn{border:none;border-radius:12px;padding:11px 14px;font-size:14px;font-weight:700;cursor:pointer;background:#e3ebf4;color:#24425f}
+.btn.primary{background:var(--blue);color:#fff}
+.btn.on{background:var(--blue);color:#fff}
+.btn.danger{background:#fff;color:#b71c1c;border:1.5px solid #ef9a9a}
+.switchrow{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f4f7fb;border:1px solid var(--line);border-radius:12px;padding:12px}
+.switch{width:52px;height:30px;border-radius:999px;background:#c3cfdb;position:relative;cursor:pointer;border:none;flex-shrink:0}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.18s}
+.switch.on{background:var(--green)}
+.switch.on::after{left:25px}
+.modal-backdrop{position:fixed;inset:0;background:rgba(36,49,63,.5);display:none;z-index:50;padding:12px;overflow-y:auto}
+.modal-backdrop.open{display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:600px){.modal-backdrop.open{align-items:center}}
+.modal-sheet{width:100%;max-width:600px;max-height:92vh;overflow-y:auto;margin:0;animation:slideup .22s ease}
+@keyframes slideup{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.xbtn{border:1px solid var(--line);background:#fff;border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;flex-shrink:0}
+body.locked{overflow:hidden}
+.hist{border-top:1px dashed var(--line);padding:8px 0;font-size:14px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.muted{color:var(--muted);font-size:13px}
+.hidden{display:none!important}
+footer{padding:24px 0;text-align:center}
+.scaleline{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header><div class="wrap topbar">
+  <div class="brand"><span class="logo">◐</span> Équilibre</div>
+</div></header>
+
+<main class="wrap">
+  <div class="card state">
+    <small>État du moment</small>
+    <div class="big" id="stateLabel">—</div>
+    <div class="muted" style="color:#dbe7f3" id="stateSub">Note ton humeur chaque jour pour voir ta phase.</div>
+    <div class="row" id="stateStats"></div>
+  </div>
+
+  <div class="alert hidden" id="crisisBox">⚠️ <strong>Note extrême aujourd'hui.</strong> Si tu te sens en danger ou débordé·e, appelle le <strong>3114</strong> (France, 24h/24) ou ton pro de santé. Tu comptes.</div>
+
+  <div class="card">
+    <h3 style="margin:0 0 4px">📈 Courbes d'humeur</h3>
+    <p class="muted">0 = dépression sévère → 5 = équilibre → 10 = manie. Choisis la période :</p>
+    <div class="btnrow" style="margin-top:0">
+      <button class="btn rangeBtn on" data-r="week">Semaine</button>
+      <button class="btn rangeBtn" data-r="month">Mois</button>
+      <button class="btn rangeBtn" data-r="year">Année</button>
+      <button class="btn rangeBtn" data-r="all">Tout</button>
+    </div>
+    <canvas id="chart" height="200" style="width:100%;height:200px;background:#fff;border:1px solid var(--line);border-radius:12px;margin-top:10px"></canvas>
+    <div class="muted" id="chartInfo" style="margin-top:6px">—</div>
+    <div class="scaleline"><span>0 dépression</span><span>→</span><span>5 équilibre</span><span>→</span><span>10 manie</span></div>
+  </div>
+
+  <div class="card">
+    <div class="cal-head">
+      <button class="navbtn" id="prevM">‹</button>
+      <h2 id="monthLabel">—</h2>
+      <button class="navbtn" id="nextM">›</button>
+    </div>
+    <div style="text-align:center;margin-bottom:8px"><button class="navbtn" id="todayBtn">Aujourd'hui</button></div>
+    <div class="grid" id="dow"></div>
+    <div class="grid" id="cal" style="margin-top:6px"></div>
+    <div class="legend">
+      <span><i class="sw" style="background:#5c6bc0"></i>déprimé (0-3)</span>
+      <span><i class="sw" style="background:#43a047"></i>stable (4-6)</span>
+      <span><i class="sw" style="background:#ef6c00"></i>élevé (7-10)</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 4px">🧭 Échelle 0-10</h3>
+    <div class="muted" id="scaleList">0 Dépression sévère • 1-2 Dépression • 3-4 Baisse • 5 Équilibre • 6 Élévation • 7-8 Hypomanie • 9-10 Manie possible — en parler à son pro.</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 8px">Historique récent</h3>
+    <div id="history"></div>
+    <div class="btnrow">
+      <button class="btn" id="exportBtn">Exporter</button>
+      <button class="btn" id="importBtn">Importer</button>
+      <input type="file" id="file" accept="application/json" class="hidden">
+      <button class="btn danger" id="wipeBtn">Tout effacer</button>
+    </div>
+    <p class="muted">Aucun compte nécessaire.</p>
+  </div>
+
+  <div class="card">
+    <strong>Installer comme application</strong>
+    <p class="muted">Android (Chrome) : menu ⋮ → « Installer ». iPhone (Safari) : Partager → « Sur l'écran d'accueil ».</p>
+    <button class="btn primary hidden" id="installBtn">Installer</button>
+  </div>
+
+  <footer class="muted">Équilibre • suivi personnel, pas un avis médical 🌗<br>Urgence : 3114 (France).</footer>
+</main>
+
+<div class="modal-backdrop" id="dayModal">
+  <div class="card modal-sheet">
+    <div class="modal-head">
+      <div><h3 id="dayTitle" style="margin:0 0 4px">—</h3>
+      <div class="muted" id="dayPhase">—</div></div>
+      <button class="xbtn" id="closeDay">✕</button>
+    </div>
+    <label class="section">Humeur du jour — 0 à 10</label>
+    <div class="scoregrid" id="scoreGrid"></div>
+    <div id="scoreLabel" style="margin-top:8px;font-weight:800">—</div>
+    <label class="section">Mots-humeurs (plusieurs possibles)</label>
+    <div class="muted">Coche tes mots du jour : la note se calcule toute seule. Touche un chiffre ci-dessus pour ajuster si besoin.</div>
+    <div class="chips" id="moodChips" style="margin-top:8px"></div>
+    <label class="section">Sommeil : <span id="sleepVal">8</span>h</label>
+    <input type="range" id="sleep" min="0" max="14" step="0.5" value="8">
+    <label class="section">Traitement</label>
+    <div class="switchrow">
+      <div><strong id="medLabel">Traitement pris</strong><br><span class="muted">Selon ta prescription.</span></div>
+      <button class="switch on" id="medSwitch" aria-label="Traitement pris ou non"></button>
+    </div>
+    <label class="section">Notes (optionnel)</label>
+    <textarea id="notes" placeholder="Contexte, événements, signes…"></textarea>
+    <div class="btnrow">
+      <button class="btn danger" id="clearDay">Effacer ce jour</button>
+      <button class="btn primary" id="doneDay" style="flex:1">Terminé ✓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY='equilibre-humeur-v1';
+const MOODS=[['Effondré',0],['Anéanti',0],['Désespéré',0],['Déprimé',1],['Vide',1],['Sans espoir',1],['En larmes',1],['Triste',2],['Morose',2],['Découragé',2],['Affligé',2],['Seul',2],['Abattu',3],['Maussade',3],['Lourd',3],['Anxieux',3],['Craintif',3],['Fatigué',3],['Fragile',4],['Vulnérable',4],['Éteint',4],['Stressé',4],['Stable',5],['Calme',5],['Serein',5],['Neutre',5],['Réservé',5],['Réfléchi',5],['Instable',5],['Bien',6],['Confiant',6],['Optimiste',6],['Motivé',6],['En colère',6],['Irritable',6],['Satisfait',6],['Sociable',6],['Énergique',7],['Dynamique',7],['Enthousiaste',7],['Bavard',7],['Joyeux',7],['Heureux',7],['Euphorique',8],['Exalté',8],['Rayonnant',8],['Ravi',8],['Bourdonnant',8],['Paranoïaque',8],['Surexcité',9],['Speed',9],['Impulsif',9],['Agité',9],['Invincible',10],['Tout-puissant',10],['Inarrêtable',10]];
+let store=load(),viewY,viewM,selected,range='week',deferredPrompt=null;
+function load(){try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){}return{days:{}}}
+function save(){localStorage.setItem(KEY,JSON.stringify(store))}
+function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function parseISO(s){const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c)}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function diffDays(a,b){return Math.round((b-a)/864e5)}
+const todayISO=iso(new Date());
+(function init(){const t=new Date();viewY=t.getFullYear();viewM=t.getMonth();selected=todayISO;buildStatic();render();})();
+
+function scoreInfo(s){
+  if(s==null)return{label:'—',color:'#b0bec5'};
+  if(s<=1)return{label:s+' — Dépression sévère',color:'#1a237e'};
+  if(s<=2)return{label:s+' — Dépression forte',color:'#3949ab'};
+  if(s<=3)return{label:s+' — Dépression modérée',color:'#5c6bc0'};
+  if(s<=4)return{label:s+' — Baisse légère',color:'#64a5d6'};
+  if(s===5)return{label:s+' — Équilibre 🙂',color:'#43a047'};
+  if(s===6)return{label:s+' — Élévation légère',color:'#c0a500'};
+  if(s<=8)return{label:s+' — Hypomanie',color:'#ef6c00'};
+  return{label:s+' — Manie possible ⚠️',color:'#c62828'};
+}
+function zoneOf(s){if(s==null)return'none';if(s<=3)return'low';if(s<=6)return'mid';return'high';}
+function dayEntry(k){return store.days[k]||{}}
+function sortedKeys(){return Object.keys(store.days).sort()}
+
+function avgOf(arr){const v=arr.filter(x=>x!=null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;}
+function lastNDays(n){
+  const out=[];const t=new Date(new Date().setHours(0,0,0,0));
+  for(let i=n-1;i>=0;i--){const d=addDays(t,-i),k=iso(d);out.push({date:d,key:k,value:store.days[k]?.score??null});}
+  return out;
+}
+function monthlyAvg(lastN){
+  const out=[];const now=new Date();
+  for(let i=lastN-1;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const y=d.getFullYear(),m=d.getMonth();
+    const vals=Object.entries(store.days).filter(([k,v])=>{const dd=parseISO(k);return dd.getFullYear()===y&&dd.getMonth()===m&&v.score!=null;}).map(([k,v])=>v.score);
+    out.push({label:d.toLocaleDateString('fr-FR',{month:'short'}),value:avgOf(vals)});
+  }
+  return out;
+}
+function weeklyAvgAll(){
+  const keys=sortedKeys().filter(k=>store.days[k].score!=null);
+  if(!keys.length)return[];
+  const buckets={};
+  keys.forEach(k=>{const d=parseISO(k);const monday=addDays(d,-((d.getDay()+6)%7));const bk=iso(monday);(buckets[bk]=buckets[bk]||[]).push(store.days[k].score);});
+  return Object.keys(buckets).sort().map(bk=>({label:parseISO(bk).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),value:avgOf(buckets[bk])}));
+}
+function detectPhase(){
+  const a7=avgOf(lastNDays(7).map(p=>p.value));
+  if(a7==null)return{t:'Pas encore de données',s:'Note chaque jour (même 5 = stable) pour voir ta phase.'};
+  if(a7<=3)return{t:'Phase dépressive possible',s:'Moyenne 7 jours : '+a7.toFixed(1)+'. Prends soin de toi, parles-en à ton pro.'};
+  if(a7<=6)return{t:'Phase stable 🙂',s:'Moyenne 7 jours : '+a7.toFixed(1)+'. Continue tes repères (sommeil, traitement).'};
+  if(a7<=8)return{t:'Phase haute à surveiller',s:'Moyenne 7 jours : '+a7.toFixed(1)+'. Surveille sommeil et impulsivité, parles-en à ton pro.'};
+  return{t:'Phase maniaque possible ⚠️',s:'Moyenne 7 jours : '+a7.toFixed(1)+'. Contacte vite ton pro / entourage.'};
+}
+
+function buildStatic(){
+  document.getElementById('dow').innerHTML=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map(d=>`<div class="dow">${d}</div>`).join('');
+  const sg=document.getElementById('scoreGrid');
+  sg.innerHTML=Array.from({length:11},(_,i)=>`<button class="score" data-s="${i}">${i}</button>`).join('');
+  sg.querySelectorAll('.score').forEach(b=>b.onclick=()=>setScore(+b.dataset.s,true));
+  document.getElementById('moodChips').innerHTML=MOODS.map(([m])=>`<button class="chip" data-m="${m}">${m}</button>`).join('');
+  document.querySelectorAll('#moodChips .chip').forEach(c=>c.onclick=()=>toggleMood(c.dataset.m));
+  document.getElementById('sleep').oninput=e=>{const v=+e.target.value;setField('sleep',v);};
+  document.getElementById('medSwitch').onclick=()=>{setField('meds',!(dayEntry(selected).meds??true));};
+  document.getElementById('notes').oninput=e=>{setField('notes',e.target.value,true);};
+  document.getElementById('prevM').onclick=()=>{viewM--;if(viewM<0){viewM=11;viewY--}render();};
+  document.getElementById('nextM').onclick=()=>{viewM++;if(viewM>11){viewM=0;viewY++}render();};
+  document.getElementById('todayBtn').onclick=()=>{const t=new Date();viewY=t.getFullYear();viewM=t.getMonth();selected=todayISO;render();};
+  document.getElementById('closeDay').onclick=closeDayModal;
+  document.getElementById('doneDay').onclick=closeDayModal;
+  document.getElementById('dayModal').addEventListener('click',e=>{if(e.target.id==='dayModal')closeDayModal();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDayModal();});
+  document.getElementById('clearDay').onclick=()=>{delete store.days[selected];save();render();};
+  document.querySelectorAll('.rangeBtn').forEach(b=>b.onclick=()=>{range=b.dataset.r;document.querySelectorAll('.rangeBtn').forEach(x=>x.classList.toggle('on',x===b));renderChart();});
+  document.getElementById('exportBtn').onclick=()=>{const b=new Blob([JSON.stringify(store,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='equilibre-export.json';a.click();};
+  document.getElementById('importBtn').onclick=()=>document.getElementById('file').click();
+  document.getElementById('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(o.days){store=o;save();render();}}catch(err){alert('Fichier invalide')}};r.readAsText(f);};
+  document.getElementById('wipeBtn').onclick=()=>{if(confirm('Tout effacer ?')){store={days:{}};save();render();}};
+}
+function moodVal(m){const f=MOODS.find(([n])=>n===m);return f?f[1]:null;}
+function setScore(v,manual){
+  const e={...dayEntry(selected),score:v};
+  if(manual)e.auto=false;
+  if(e.sleep==null)e.sleep=8;if(e.meds==null)e.meds=true;
+  store.days[selected]=e;save();render();
+}
+function toggleMood(m){
+  const e={...dayEntry(selected)};e.tags=e.tags||[];
+  e.tags=e.tags.includes(m)?e.tags.filter(x=>x!==m):[...e.tags,m];
+  if(e.tags.length){
+    const vals=e.tags.map(moodVal).filter(v=>v!=null);
+    e.score=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+    e.auto=true; // note définie par les humeurs
+  } else { delete e.tags; }
+  if(e.sleep==null)e.sleep=8;if(e.meds==null)e.meds=true;
+  if(e.score==null&&!e.tags?.length&&!e.notes){delete store.days[selected];}
+  else store.days[selected]=e;
+  save();render();
+}
+function setField(f,v,silent){const e={...dayEntry(selected)};e[f]=v;if(e.score==null&&!e.tags?.length&&!e.notes&&f!=='sleep'&&f!=='meds'){delete store.days[selected];}else store.days[selected]=e;save();render();}
+function openDayModal(k){selected=k;const d=parseISO(k);viewY=d.getFullYear();viewM=d.getMonth();render();document.getElementById('dayModal').classList.add('open');document.body.classList.add('locked');}
+function closeDayModal(){document.getElementById('dayModal').classList.remove('open');document.body.classList.remove('locked');}
+
+function render(){renderState();renderCal();renderDay();renderChart();renderHist();}
+function renderState(){
+  const p=detectPhase();
+  document.getElementById('stateLabel').textContent=p.t;
+  document.getElementById('stateSub').textContent=p.s;
+  const a7=avgOf(lastNDays(7).map(x=>x.value)),a30=avgOf(lastNDays(30).map(x=>x.value));
+  const n=sortedKeys().length;
+  document.getElementById('stateStats').innerHTML=`<span class="pill">Moy. 7j : ${a7==null?'—':a7.toFixed(1)}</span><span class="pill">Moy. 30j : ${a30==null?'—':a30.toFixed(1)}</span><span class="pill">${n} jour(s) notés</span>`;
+  const t=store.days[todayISO]?.score;
+  document.getElementById('crisisBox').classList.toggle('hidden',!(t!=null&&(t<=1||t>=9)));
+}
+function renderCal(){
+  document.getElementById('monthLabel').textContent=new Date(viewY,viewM,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  const first=new Date(viewY,viewM,1),start=addDays(first,-((first.getDay()+6)%7));
+  const cal=document.getElementById('cal');cal.innerHTML='';
+  for(let i=0;i<42;i++){
+    const d=addDays(start,i),k=iso(d),e=store.days[k],sc=e?.score;
+    const b=document.createElement('button');
+    b.className='day'+(d.getMonth()!==viewM?' other':'')+(k===todayISO?' today':'')+(k===selected?' selected':'');
+    const info=scoreInfo(sc);
+    b.innerHTML=`<span class="n">${d.getDate()}</span>`+(sc!=null?`<span class="s" style="background:${info.color}">${sc}</span>`:`<span class="s" style="background:#eceff1;color:#90a4ae">·</span>`);
+    b.onclick=()=>openDayModal(k);
+    cal.appendChild(b);
+  }
+}
+function renderDay(){
+  const d=parseISO(selected),e=dayEntry(selected);
+  document.getElementById('dayTitle').textContent=d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  const info=scoreInfo(e.score);
+  document.getElementById('dayPhase').textContent=e.score==null?'Choisis une note de 0 à 10':info.label;
+  document.getElementById('dayPhase').style.color=e.score==null?'':info.color;
+  document.querySelectorAll('#scoreGrid .score').forEach(b=>{
+    const v=+b.dataset.s,on=e.score===v;
+    b.classList.toggle('on',on);
+    b.style.background=on?scoreInfo(v).color:'#fff';
+    b.style.borderColor=on?scoreInfo(v).color:'';
+  });
+  document.getElementById('scoreLabel').textContent=e.score==null?'—':info.label+(e.tags?.length?(e.auto?' (auto : '+e.tags.join(' + ')+')':' (ajustée à la main)'):' (manuelle)');
+  document.getElementById('scoreLabel').style.color=e.score==null?'':info.color;
+  document.querySelectorAll('#moodChips .chip').forEach(c=>c.classList.toggle('on',(e.tags||[]).includes(c.dataset.m)));
+  document.getElementById('sleep').value=e.sleep??8;
+  document.getElementById('sleepVal').textContent=e.sleep??8;
+  const meds=e.meds??true;
+  document.getElementById('medSwitch').classList.toggle('on',meds);
+  document.getElementById('medLabel').textContent=meds?'Traitement pris ✓':'Traitement non pris';
+  if(document.getElementById('notes').value!==(e.notes||''))document.getElementById('notes').value=e.notes||'';
+}
+function renderChart(){
+  const cv=document.getElementById('chart'),info=document.getElementById('chartInfo');
+  const dpr=window.devicePixelRatio||1,W=cv.clientWidth||540,H=200;
+  cv.width=W*dpr;cv.height=H*dpr;
+  const ctx=cv.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,W,H);
+  let pts=[],labels=[];
+  if(range==='week'){const s=lastNDays(7);pts=s.map(p=>p.value);labels=s.map(p=>p.date.toLocaleDateString('fr-FR',{weekday:'short'}));}
+  else if(range==='month'){const s=lastNDays(30);pts=s.map(p=>p.value);labels=s.map(p=>p.date.getDate()+'');}
+  else if(range==='year'){const s=monthlyAvg(12);pts=s.map(p=>p.value);labels=s.map(p=>p.label);}
+  else{const s=weeklyAvgAll();pts=s.map(p=>p.value);labels=s.map(p=>p.label);}
+  const pad={l:26,r:8,t:10,b:22},iw=W-pad.l-pad.r,ih=H-pad.t-pad.b;
+  const y=v=>pad.t+ih*(1-v/10),x=i=>pad.l+iw*(pts.length===1?0.5:i/(pts.length-1));
+  // zones
+  ctx.fillStyle='#e8eaf6';ctx.fillRect(pad.l,y(3.5),iw,y(0)-y(3.5));
+  ctx.fillStyle='#e8f5e9';ctx.fillRect(pad.l,y(6.5),iw,y(3.5)-y(6.5));
+  ctx.fillStyle='#fff3e0';ctx.fillRect(pad.l,pad.t,iw,y(6.5)-pad.t);
+  ctx.strokeStyle='#cfd8dc';ctx.fillStyle='#7d8ea1';ctx.font='10px system-ui';
+  [0,5,10].forEach(v=>{ctx.beginPath();ctx.moveTo(pad.l,y(v));ctx.lineTo(W-pad.r,y(v));ctx.stroke();ctx.fillText(v+'',8,y(v)+3);});
+  ctx.setLineDash([4,4]);ctx.strokeStyle='#9aa9b8';
+  [3.5,6.5].forEach(v=>{ctx.beginPath();ctx.moveTo(pad.l,y(v));ctx.lineTo(W-pad.r,y(v));ctx.stroke();});
+  ctx.setLineDash([]);
+  const valid=pts.map((v,i)=>({v,i})).filter(p=>p.v!=null);
+  if(!valid.length){info.textContent='Aucune note sur cette période. Touche un jour du calendrier pour noter (0-10).';return;}
+  // ligne
+  ctx.strokeStyle='#3a6ea5';ctx.lineWidth=2.5;ctx.beginPath();
+  let started=false,prev=null;
+  pts.forEach((v,i)=>{
+    if(v==null){started=false;prev=null;return;}
+    const px=x(i),py=y(v);
+    // cassure si trou
+    if(!started){ctx.moveTo(px,py);started=true;}else ctx.lineTo(px,py);
+  });
+  ctx.stroke();
+  valid.forEach(({v,i})=>{ctx.fillStyle=scoreInfo(Math.round(v)).color;ctx.beginPath();ctx.arc(x(i),y(v),4,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x(i),y(v),1.6,0,7);ctx.fill();});
+  const m=avgOf(pts);
+  info.textContent=`Moyenne période : ${m==null?'—':m.toFixed(1)} • ${valid.length} point(s). Zone bleue = bas (0-3), verte = stable (4-6), orange = haut (7-10).`;
+}
+function renderHist(){
+  const h=document.getElementById('history'),keys=sortedKeys().reverse().slice(0,14);
+  if(!keys.length){h.innerHTML='<p class="muted">Aucun jour noté. Touche un jour du calendrier.</p>';return;}
+  h.innerHTML=keys.map(k=>{
+    const e=store.days[k],info=scoreInfo(e.score);
+    const dl=parseISO(k).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+    return `<div class="hist"><span><span class="s" style="background:${info.color};color:#fff;font-weight:800;border-radius:999px;padding:2px 9px">${e.score??'·'}</span> ${dl} <span class="muted">${(e.tags||[]).join(', ')}${e.sleep!=null?' • 💤 '+e.sleep+'h':''} ${e.meds===false?'• 💊 non':''} ${e.notes?'• ✎':''}</span></span><button class="btn" data-k="${k}">Ouvrir</button></div>`;
+  }).join('');
+  h.querySelectorAll('button').forEach(b=>b.onclick=()=>openDayModal(b.dataset.k));
+}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;const b=document.getElementById('installBtn');b.classList.remove('hidden');b.onclick=()=>deferredPrompt.prompt();});
+window.addEventListener('resize',()=>renderChart());
+</script>
+</body>
+</html>
