@@ -35,7 +35,9 @@ main{padding-bottom:90px}
 label.section{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;display:block}
 input[type=text]{border:1.5px solid var(--line);border-radius:12px;padding:12px;font-size:16px;width:100%;font-family:inherit}
 .addrow{display:flex;gap:8px}
-.addrow input{flex:1}
+.addrow input{flex:1;min-width:0}
+.roomdet{margin-top:6px}
+.roomdet summary{cursor:pointer;font-size:13px;opacity:.9}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .btn{border:none;border-radius:12px;padding:12px 14px;font-size:14px;font-weight:700;cursor:pointer;background:#e3edE3;color:#1b5e20}
 .btn.primary{background:var(--green);color:#fff}
@@ -84,11 +86,14 @@ footer{padding:24px 0;text-align:center}
   <div class="card state hidden" id="roomCard">
     <small id="progress">0/0 pris</small>
     <div class="big" id="roomTitle">Liste</div>
-    <div class="codebox" id="roomCode">——————</div>
-    <div class="btnrow">
-      <button class="btn" id="copyBtn" style="background:rgba(255,255,255,.2);color:#fff">Copier le lien</button>
-      <button class="btn" id="leaveBtn" style="background:rgba(255,255,255,.2);color:#fff">Quitter</button>
-    </div>
+    <details class="roomdet">
+      <summary id="roomCodeSum">Espace partagé</summary>
+      <div class="codebox" id="roomCode">——————</div>
+      <div class="btnrow">
+        <button class="btn" id="copyBtn" style="background:rgba(255,255,255,.2);color:#fff">Copier le lien</button>
+        <button class="btn" id="leaveBtn" style="background:rgba(255,255,255,.2);color:#fff">Quitter</button>
+      </div>
+    </details>
   </div>
 
   <div class="card hidden" id="listCard">
@@ -166,6 +171,7 @@ function refresh(){
   if(!inRoom){ const c=new URLSearchParams(location.search).get('room'); if(c)document.getElementById('roomInput').value=c; return; }
   document.getElementById('meChip').innerHTML=`<span class="dot" style="background:${me.color}"></span> ${me.pseudo}`;
   document.getElementById('roomCode').textContent=room;
+  document.getElementById('roomCodeSum').textContent=`Espace ${room} — lien & quitter`;
   if(!location.search.includes(room))history.replaceState(null,'','?room='+room);
   if(unsub)unsub();
   unsub=firebase.firestore().collection('shop_items').where('room','==',room).onSnapshot(snap=>{
